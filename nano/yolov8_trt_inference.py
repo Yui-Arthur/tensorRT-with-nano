@@ -7,6 +7,9 @@ import cv2
 import numpy as np
 from PIL import Image
 import tensorrt as trt
+import argparse
+import yaml
+import time
 
 def non_maximum_suppression_fast(boxes, overlapThresh=0.3):
 
@@ -61,10 +64,7 @@ def non_maximum_suppression_fast(boxes, overlapThresh=0.3):
     return pick
 
 def load_engine(trt_runtime, plan_path):
-  #  with open(plan_path, 'rb') as f:
-      #  engine_data = f.read()
-      # engine_data = f.read_bytes()
-  #  engine = trt_runtime.deserialize_cuda_engine(engine_data)
+
     engine = trt_runtime.deserialize_cuda_engine(Path(plan_path).read_bytes())
     return engine
 
@@ -101,7 +101,7 @@ def load_images_to_buffer(pics, pagelocked_buffer):
    preprocessed = np.asarray(pics).ravel()
    np.copyto(pagelocked_buffer, preprocessed)
 
-def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, stream, batch_size, height, width):
+def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, stream, model_output_shape):
     """
     This is the function to run the inference
     Args:
@@ -120,7 +120,7 @@ def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, strea
         The list of output images
 
     """
-
+    start = time.perf_counter()
     load_images_to_buffer(pics_1, h_input_1)
 
     with engine.create_execution_context() as context:
@@ -139,23 +139,26 @@ def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, strea
         # Return the host output.
         out = h_output.reshape((model_output_shape))
         # out = h_output
-        return out
+
+        return out , time.perf_counter() - start
 
 
 
 
-def draw_detect(img , x , y , width , height , conf , label):
+def draw_detect(img , x , y , width , height , conf , class_id , label):
     # label = f'{CLASSES[class_id]} ({confidence:.2f})'
     # color = colors[class_id]
-    print(x , y , width , height , conf , label)
+    
+    print(x , y , width , height , conf , class_id)
     cv2.rectangle(img, (x, y), (x + width, y + height), (0,0,255), 2)
 
-    cv2.putText(img, f"{yolo_class[label]} {conf}", (x - 10, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+    cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x - 10, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
 
-def show_detect(img , preds , threshold = 0.5):
+def show_detect(img , preds , iou_threshold , conf_threshold, class_label):
     boxes = []
     scores = []
     class_ids = []
+    
 
     for pred_idx in range(preds.shape[2]):
         pred = preds[0,:,pred_idx]
@@ -164,61 +167,123 @@ def show_detect(img , preds , threshold = 0.5):
         conf = pred[4:]
         label = np.argmax(conf)
         max_conf = np.max(conf)
-        if max_conf < 0.25:
+        if max_conf < conf_threshold:
             continue
         boxes.append(box)
         
         scores.append(max_conf)
         class_ids.append(label)
 
-    # result_boxes = cv2.dnn.NMSBoxes(boxes, scores, 0.25, 0.45, 0.5)
     boxes = np.array(boxes)
-    result_boxes = non_maximum_suppression_fast(boxes, overlapThresh=0.3)
-    # print(result_boxes)
+    result_boxes = non_maximum_suppression_fast(boxes, overlapThresh=iou_threshold)
+    
 
     for i in range(len(result_boxes)):
         index = result_boxes[i]
         box = boxes[index]
-        detection = {
-                'class_id': class_ids[index],
-                # 'class_name': CLASSES[class_ids[index]],
-                'confidence': scores[index],
-                'box': box,
-                # 'scale': scale}
-        }
-        # detections.append(detection)
+        
         draw_detect(img, round(box[0]), round(box[1]),round(box[2]), round(box[3]),
-            scores[index] , class_ids[index])
-    print(detection)
+            scores[index] , class_ids[index] , class_label)
+    
+    
+    
+    return
         
 
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--weights', nargs=1, type=str, help='model path')
+    parser.add_argument('--source', nargs=1 , type=str  ,help='inference target')
+    parser.add_argument('--output-shape' , nargs='+' , type=int, help='model output shape')
+    parser.add_argument('--imgsz', nargs='+', type=int, default=[640,640], help='inference size h,w')
+    parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
+    parser.add_argument('--data', nargs=1 , type=str, help=' dataset.yaml path')
 
-yolo_class = {
-    0 : "dog",
-    1 : "cat"
-}
+    opt = parser.parse_args()
+    return opt
 
-model_output_shape = (1 , 6 , 2100)
+def main(opt):
+    print(opt)
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+    trt_runtime = trt.Runtime(TRT_LOGGER)
+    engine_path = opt['weights'][0]
+    WIDTH , HEIGHT = opt['imgsz']
+    model_output_shape = opt['output_shape']
+    engine = load_engine(trt_runtime, engine_path)
+    source =  opt['source'][0]
+    iou_threshold =  opt['iou_thres']
+    conf_threshold = opt['conf_thres']
+    yaml_path = opt['data'][0]
 
-TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
-trt_runtime = trt.Runtime(TRT_LOGGER)
+    with open(yaml_path, 'r') as stream:
+        data = yaml.load(stream)
+    
+    label = data['names']
+    print(label)
 
-serialized_plan_fp32 = "./best.engine"
-HEIGHT = 320
-WIDTH = 320
+    if source.split('.')[-1] in ('jpg' , 'png' , 'jpeg'):
+        image_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label)
+    else:
+        if len(source.split('.')) == 1: source = int(source)
 
-img = cv2.imread("dog.jpeg")
-img = cv2.resize(img , (WIDTH , HEIGHT))
-im = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-im = np.array(im, dtype=np.float32, order='C')
-im = im.transpose((2, 0, 1))
-im = (2.0 / 255.0) * im - 1.0
+        video_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label)
 
-engine = load_engine(trt_runtime, serialized_plan_fp32)
-h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
 
-out = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, 1, HEIGHT, WIDTH)
-show_detect(img , out)
-cv2.imshow("img" , img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+
+def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label):
+    h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print("VideoCapture Error")
+        return
+    
+    while(True):
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        
+        start_time = time.perf_counter()
+        frame = cv2.resize(frame , (WIDTH , HEIGHT))            
+        im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        im = np.array(im, dtype=np.float32, order='C')
+        im = im.transpose((2, 0, 1))
+        im = (2.0 / 255.0) * im - 1.0
+        out , _ = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
+
+        
+        show_detect(frame , out , iou_threshold , conf_threshold , label)
+
+        
+        end_time = time.perf_counter()
+        fps = 1 / (end_time - start_time)
+        print((end_time - start_time))
+        print(fps)
+        cv2.putText(frame, f"fps : {int(fps)}", (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+        cv2.imshow("img" , frame)
+
+        if cv2.waitKey(1) == ord('q'):
+            break
+            
+    cv2.destroyAllWindows()
+
+def image_inferences(img_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label):
+    h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
+    img = cv2.imread(img_path)
+    img = cv2.resize(img , (WIDTH , HEIGHT))
+    im = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    im = np.array(im, dtype=np.float32, order='C')
+    im = im.transpose((2, 0, 1))
+    im = (2.0 / 255.0) * im - 1.0
+    out = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
+    show_detect(img , out , iou_threshold , conf_threshold , label)
+    cv2.imshow("img" , img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+
+if __name__ == "__main__" :
+    opt = parse_opt()
+    main(vars(opt))

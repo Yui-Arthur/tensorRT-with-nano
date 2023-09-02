@@ -1,0 +1,73 @@
+import argparse
+from onnx import ModelProto
+import tensorrt as trt
+from pathlib import Path
+
+def build_engine(TRT_LOGGER , onnx_path, shape):
+
+    """
+    This is the function to create the TensorRT engine
+    Args:
+        onnx_path : Path to onnx_file.
+        shape : Shape of the input of the ONNX file.
+    """
+    with trt.Builder(TRT_LOGGER) as builder, builder.create_network(1) as network, builder.create_builder_config() as config, trt.OnnxParser(network, TRT_LOGGER) as parser:
+        config.max_workspace_size = (256 << 20)
+        with open(onnx_path, 'rb') as model:
+            parser.parse(model.read())
+        network.get_input(0).shape = shape
+        engine = builder.build_engine(network, config)
+        return engine
+
+def save_engine(engine, file_name):
+    buf = engine.serialize()
+    with open(file_name, 'wb') as f:
+        f.write(buf)
+
+def onnx2engine(onnx_file , engine_file):
+
+    print(f"start {onnx_file} => {engine_file}")
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+    
+    batch_size = 1
+
+    model = ModelProto()
+    with open(onnx_file, "rb") as f:
+        model.ParseFromString(f.read())
+
+    d0 = model.graph.input[0].type.tensor_type.shape.dim[1].dim_value
+    d1 = model.graph.input[0].type.tensor_type.shape.dim[2].dim_value
+    d2 = model.graph.input[0].type.tensor_type.shape.dim[3].dim_value
+    shape = [batch_size , d0, d1 ,d2]
+    engine = build_engine(TRT_LOGGER , onnx_file, shape = shape)
+    save_engine(engine, engine_file)
+    print(f"input shape : {shape}" )
+
+    output_0 = model.graph.output[0].type.tensor_type.shape.dim[0].dim_value
+    output_1 = model.graph.output[0].type.tensor_type.shape.dim[1].dim_value
+    output_2 = model.graph.output[0].type.tensor_type.shape.dim[2].dim_value
+    model_output_shape = (output_0 , output_1 , output_2)
+
+    print(f"output shape : {model_output_shape}" )
+
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    # parser.add_argument('--engine', type=str, help='trt engine path')
+    # group.add_argument('--pt', type=str, help='pt model path')
+    # group = parser.add_mutually_exclusive_group()
+    parser.add_argument('--onnx', type=str, help='onnx model path')
+
+    opt = parser.parse_args()
+    return opt
+
+def main(opt):
+    print(opt)
+
+    opt['pt'] =  opt['onnx'].replace(".onnx" , ".pt")
+
+    onnx2engine(opt['pt'].replace(".pt" , ".onnx") , opt['pt'].replace(".pt" , ".engine"))
+        
+
+if __name__ == '__main__':
+    opt = parse_opt()
+    main(vars(opt))
