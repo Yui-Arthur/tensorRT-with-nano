@@ -276,8 +276,9 @@ def image_inferences(img_path , WIDTH , HEIGHT , model_output_shape , engine , i
     im = np.array(im, dtype=np.float32, order='C')
     im = im.transpose((2, 0, 1))
     im = (2.0 / 255.0) * im - 1.0
-    out = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
+    out , infer_time = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
     show_detect(img , out , iou_threshold , conf_threshold , label)
+    print(f"success inference with {int(infer_time*1000)} ms")
     cv2.imshow("img" , img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
