@@ -43,18 +43,19 @@ def onnx2engine(onnx_file , engine_file):
     save_engine(engine, engine_file)
     print(f"input shape : {shape}" )
 
-    output_0 = model.graph.output[0].type.tensor_type.shape.dim[0].dim_value
-    output_1 = model.graph.output[0].type.tensor_type.shape.dim[1].dim_value
-    output_2 = model.graph.output[0].type.tensor_type.shape.dim[2].dim_value
-    model_output_shape = (output_0 , output_1 , output_2)
+    output = []
+    for idx in range(len(model.graph.output[0].type.tensor_type.shape.dim)):
+        output.append(model.graph.output[0].type.tensor_type.shape.dim[idx].dim_value)
 
-    print(f"output shape : {model_output_shape}" )
+    # output_0 = model.graph.output[0].type.tensor_type.shape.dim[0].dim_value
+    # output_1 = model.graph.output[0].type.tensor_type.shape.dim[1].dim_value
+    # output_2 = model.graph.output[0].type.tensor_type.shape.dim[2].dim_value
+    # model_output_shape = (output_0 , output_1 , output_2)
+
+    print(f"output shape : {output}" )
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    # parser.add_argument('--engine', type=str, help='trt engine path')
-    # group.add_argument('--pt', type=str, help='pt model path')
-    # group = parser.add_mutually_exclusive_group()
     parser.add_argument('--onnx', type=str, help='onnx model path')
 
     opt = parser.parse_args()

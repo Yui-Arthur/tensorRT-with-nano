@@ -1,10 +1,13 @@
-"""### trt inference"""
-
 
 import tensorrt as trt
 import pycuda.driver as cuda
 import numpy as np
 import pycuda.autoinit
+import numpy as np
+from PIL import Image
+import tensorrt as trt
+import argparse
+
 
 def allocate_buffers(engine, batch_size, data_type):
 
@@ -80,7 +83,7 @@ def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, strea
       return out.reshape(1, -1)
 def softmax(x):
   # x -= np.max(x , axis=1 , keepdims = True)
-  x = np.exp(x) / np.sum(np.exp(x) , axis=1 , keepdims = True)
+  x = np.exp(x) / np.sum(np.exp(x))
   return x
 
 def load_engine(trt_runtime, plan_path):
@@ -89,39 +92,52 @@ def load_engine(trt_runtime, plan_path):
    engine = trt_runtime.deserialize_cuda_engine(engine_data)
    return engine
 
-# import keras
-import tensorrt as trt
-import numpy as np
-from PIL import Image
-import tensorrt as trt
-import torch.nn as nn
-# import labels  # from cityscapes evaluation script
-# import skimage.transform
+def parse_opt():
+    parser = argparse.ArgumentParser()
 
-TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
-trt_runtime = trt.Runtime(TRT_LOGGER)
+    parser.add_argument('--engine', type=str, help='engine path')
+    parser.add_argument('--source', type=str, help='image path')
+    parser.add_argument('--imgsz', nargs='+', type=int, default=[320,263], help='inference size h,w')
 
-input_file_path = "hen.jpg"
-serialized_plan_fp32 = "resnet50.trt"
-HEIGHT = 224
-WIDTH = 224
+    opt = parser.parse_args()
+    return opt
 
-img = Image.open(input_file_path).resize((WIDTH , HEIGHT))
-# img.show()
-img = np.asarray(img)
-im = np.array(img, dtype=np.float32, order='C')
-im = im.transpose((2, 0, 1))
-im = (2.0 / 255.0) * im - 1.0
+def main(opt):
 
-engine = load_engine(trt_runtime, serialized_plan_fp32)
-h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+    trt_runtime = trt.Runtime(TRT_LOGGER)
+
+    input_image_path = opt['source']
+    model_path = opt['engine']
+    HEIGHT , WIDTH = opt['imgsz']
+
+    class_dic = {
+        0 : "daisy",
+        1 : "dandelion",
+        2 : "roses",
+        3 : "sunflowers",
+        4 : "tulips"
+    }
+
+    img = Image.open(input_image_path).resize((WIDTH , HEIGHT))
+    # img.show()
+    img = np.asarray(img)
+    im = np.array(img, dtype=np.float32, order='C')
+    im = im.transpose((2, 0, 1))
+    im = (2.0 / 255.0) * im - 1.0
+
+    engine = load_engine(trt_runtime, model_path)
+    h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
 
 
-out = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, 1, HEIGHT, WIDTH)
-out = softmax(out)
+    out = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, 1, HEIGHT, WIDTH)
+    out = softmax(out.astype(np.float128))
 
-label = np.argmax(out)
-value = np.max(out)
+    label = np.argmax(out)
+    value = np.max(out)
 
-print(label , value)
+    print(class_dic[label] , value)
 
+if __name__ == '__main__':
+   opt = parse_opt()
+   main(vars(opt))

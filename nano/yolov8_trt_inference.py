@@ -152,7 +152,7 @@ def draw_detect(img , x , y , width , height , conf , class_id , label):
     print(x , y , width , height , conf , class_id)
     cv2.rectangle(img, (x, y), (x + width, y + height), (0,0,255), 2)
 
-    cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x - 10, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+    cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x - 10, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
 
 def show_detect(img , preds , iou_threshold , conf_threshold, class_label):
     boxes = []
