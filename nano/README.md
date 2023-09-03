@@ -15,10 +15,10 @@ bash script/torch_install.sh
 bash script/torch2trt_install.sh
 ```
 
-# yolov8
-## run ``` colab/yolov8_trt.ipynb ``` in colab & download yolov8 onnx & .yaml
-## yolov8 onnx => trt engine
+# yolov8 with facemask
+## run ``` colab/yolov8_with_facemask.ipynb ``` on colab & download ```best.onnx``` & ```dataset.yaml```
 
+## yolov8 onnx => trt engine
 ```bash
 sudo python3 onnx2trt.py --onnx {model_path}
 # will show the input/output shape used in inference
@@ -27,10 +27,7 @@ sudo python3 onnx2trt.py --onnx {model_path}
 # output shape : (1, 6, 2100)
 ```
 
-
 ## yolov8 engine inference
-
-
 ```bash
 # see parameter
 sudo python3 yolov8_trt_inference.py --help 
@@ -49,25 +46,19 @@ sudo python3 yolov8_trt_inference.py --weights models/best.engine --source video
 sudo python3 yolov8_trt_inference.py --weights models/best.engine --source 0 --imgsz 320 320 --output-shape 1 6 2100 --data ./sample.yaml
 ```
 
-# pt => onnx => trt engine
+# efficientnet_b0 with flower dataset
 
-## gen trt engine
+## run ```pytorch_with_flowers_dataset.ipynb``` on pytorch & dowload ```flower_classfication_model_best.onnx```
+
+## onnx => trt
 ```bash
-sudo python3 pt2onnx2trt.py
+sudo sudo python3 onnx2trt.py --onnx {model_path}
 ```
 ## inference trt engine
 ```bash
-sudo python3 trt_inference.py
+# see parameter
+sudo python3 trt_inference.py --help
+sudo python3 trt_inference.py --weights models/flower_classfication_model_best.engine --source images/sunflower.jpg --imgsz 320 263 
 ```
 
-# torch2trt
 
-## gen trt pt file
-```bash
-sudo python3 torch2trt_model.py
-```
-
-## inference trt pt file
-```bash
-sudo python3 torch2trt_inference.py
-```
