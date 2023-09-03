@@ -58,6 +58,7 @@ sudo sudo python3 onnx2trt.py --onnx {model_path}
 ```bash
 # see parameter
 sudo python3 trt_inference.py --help
+# example
 sudo python3 trt_inference.py --weights models/flower_classfication_model_best.engine --source images/sunflower.jpg --imgsz 320 263 
 ```
 
