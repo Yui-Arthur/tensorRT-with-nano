@@ -38,11 +38,22 @@ sudo python3 yolov8/nano/yolov8_trt_inference.py --help
 # imgsz/output-shape can get in yolov8_trt.ipynb or  onnx2trt.py
 
 # run with img
-sudo python3 yolov8/nano/yolov8_trt_inference.py --weights models/best.engine --source images/dog.jpeg --imgsz 320 320 --output-shape 1 6 2100 --data yolov8/nano/sample.yaml
+sudo python3 yolov8/nano/yolov8_trt_inference.py \
+--weights models/best.engine \
+--source data/images/dog.jpeg \
+--imgsz 320 320 --output-shape 1 6 2100 \
+--data yolov8/nano/sample.yaml \
 # run with video
-sudo python3 yolov8/nano/yolov8_trt_inference.py --weights models/best.engine --source video/dog_cat.mp4 --imgsz 320 320 --output-shape 1 6 2100 --data yolov8/nano/sample.yaml
+sudo python3 yolov8/nano/yolov8_trt_inference.py \ 
+--weights models/best.engine \
+--source data/video/dog_cat.mp4 \
+--imgsz 320 320 --output-shape 1 6 2100 \
+--data yolov8/nano/sample.yaml
 # run with webcam
-sudo python3 yolov8/nano/yolov8_trt_inference.py --weights models/best.engine --source 0 --imgsz 320 320 --output-shape 1 6 2100 --data yolov8/nano/sample.yaml
+sudo python3 yolov8/nano/yolov8_trt_inference.py \
+--weights models/best.engine \
+--source 0 --imgsz 320 320 --output-shape 1 6 2100 \
+--data yolov8/nano/sample.yaml
 ```
 
 # efficientnet_b0 with flower dataset
@@ -58,7 +69,10 @@ sudo python3 onnx2trt.py --onnx {model_path}
 # see parameter
 sudo python3 flower/nano/trt_inference.py --help
 # example
-sudo python3 flower/nano/trt_inference.py --engine models/flower_classfication_model_best.engine --source images/sunflower.jpg --imgsz 320 263 
+sudo python3 flower/nano/trt_inference.py \
+--engine data/models/flower_classfication_model_best.engine  \
+--source data/images/sunflower.jpg \
+--imgsz 320 263 
 ```
 
 
