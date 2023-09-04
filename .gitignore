@@ -1,3 +1,4 @@
 __pycache__
-models/*.onnx
-models/*.pt
+data/models/*.onnx
+data/models/*.pt
+deprecated/*
