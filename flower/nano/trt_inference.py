@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 import tensorrt as trt
 import argparse
+import time
 
 
 def allocate_buffers(engine, batch_size, data_type):
@@ -121,21 +122,26 @@ def main(opt):
 
     img = Image.open(input_image_path).resize((WIDTH , HEIGHT))
     # img.show()
+    
+    start_time = time.perf_counter()
+
     img = np.asarray(img)
     im = np.array(img, dtype=np.float32, order='C')
     im = im.transpose((2, 0, 1))
-    im = (2.0 / 255.0) * im - 1.0
+    im /=  255
 
     engine = load_engine(trt_runtime, model_path)
     h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
 
 
     out = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, 1, HEIGHT, WIDTH)
+    
     out = softmax(out.astype(np.float128))
-
+    end_time = time.perf_counter()
     label = np.argmax(out)
     value = np.max(out)
 
+    print(f"inference time : {(end_time - start_time)*1000} ms")
     print(class_dic[label] , value)
 
 if __name__ == '__main__':

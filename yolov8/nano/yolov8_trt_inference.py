@@ -249,7 +249,7 @@ def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine ,
         im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         im = np.array(im, dtype=np.float32, order='C')
         im = im.transpose((2, 0, 1))
-        im = (2.0 / 255.0) * im - 1.0
+        im /=  255
         out , _ = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
 
         
