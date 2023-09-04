@@ -1,11 +1,11 @@
 # Train yolov8 with custom datset & run yolov8 on nano with tensorRT
 
-## dogs and cats dataset training
+### dogs and cats dataset training
 run ``` yolov8/colab/yolov8_with_facemask.ipynb ``` on colab & download ```best.onnx``` & ```dataset.yaml```
-## facemask dataset training
+### facemask dataset training
 run ``` yolov8/colab/yolov8_with_dogs_cats.ipynb ``` on colab & download ```best.onnx``` & ```dog_cat.yaml```
 
-## export yolov8 model onnx => trt engine
+### export yolov8 model onnx => trt engine
 ```bash
 sudo python3 onnx2trt.py --onnx {model_path}
 # will show the input/output shape used in inference
@@ -14,7 +14,7 @@ sudo python3 onnx2trt.py --onnx {model_path}
 # output shape : (1, 6, 2100)
 ```
 
-## yolov8 engine inference
+### yolov8 engine inference
 ```bash
 # see parameter
 sudo python3 yolov8/nano/yolov8_trt_inference.py --help 
