@@ -3,6 +3,8 @@ export PATH=$CUDA_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 
 apt install  -y python3-pip
+apt install -y libpython3.6-dev
+ap install -y libjpeg-dev zlib1g-dev libpython3-dev libopenblas-dev libavcodec-dev libavformat-dev libswscale-dev
 
 source ~/.bashrc
 nvcc --version
