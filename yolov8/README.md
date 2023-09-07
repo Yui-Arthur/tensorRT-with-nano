@@ -27,19 +27,19 @@ sudo python3 yolov8/nano/yolov8_trt_inference.py --help
 
 # run with img
 sudo python3 yolov8/nano/yolov8_trt_inference.py \
---weights models/best.engine \
---source data/images/dog.jpeg \
+--weights data/models/best.engine \
+--source data/images/people.jpg \
 --imgsz 320 320 --output-shape 1 6 2100 \
---data yolov8/nano/sample.yaml \
+--data yolov8/nano/sample.yaml 
 # run with video
 sudo python3 yolov8/nano/yolov8_trt_inference.py \ 
---weights models/best.engine \
+--weights data/models/best.engine \
 --source data/video/dog_cat.mp4 \
 --imgsz 320 320 --output-shape 1 6 2100 \
 --data yolov8/nano/sample.yaml
 # run with webcam
 sudo python3 yolov8/nano/yolov8_trt_inference.py \
---weights models/best.engine \
+--weights data/models/best.engine \
 --source 0 --imgsz 320 320 --output-shape 1 6 2100 \
 --data yolov8/nano/sample.yaml
 ```
