@@ -22,3 +22,11 @@ bash script/torch_install.sh
 # example
 sudo python3 onnx2trt.py --onnx {model_path}
 ```
+
+# trtexec tool
+```bash
+# export to onnx
+/usr/src/tensorrt/bin/trtexec --onnx={onnx_model} --saveEngine={engine_path}
+# check model performance
+/usr/src/tensorrt/bin/trtexec --loadEngine={engine_path}
+```

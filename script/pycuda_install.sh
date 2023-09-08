@@ -2,9 +2,11 @@ export CUDA_HOME=/usr/local/cuda
 export PATH=$CUDA_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 
+apt install libcanberra-gtk-module libcanberra-gtk3-module
+
 apt install  -y python3-pip
 apt install -y libpython3.6-dev
-ap install -y libjpeg-dev zlib1g-dev libpython3-dev libopenblas-dev libavcodec-dev libavformat-dev libswscale-dev
+apt install -y libjpeg-dev zlib1g-dev libpython3-dev libopenblas-dev libavcodec-dev libavformat-dev libswscale-dev
 
 source ~/.bashrc
 nvcc --version
