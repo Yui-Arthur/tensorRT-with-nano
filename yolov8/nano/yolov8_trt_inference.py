@@ -12,7 +12,7 @@ import yaml
 import time
 
 def non_maximum_suppression_fast(boxes, overlapThresh=0.3):
-
+    
     # If there is no bounding box, then return an empty list
     if len(boxes) == 0:
         return []
@@ -28,9 +28,9 @@ def non_maximum_suppression_fast(boxes, overlapThresh=0.3):
     
     # Calculate the area of bounding boxes
     bound_area = (x2-x1+1) * (y2-y1+1)
-    
     # Sort the bounding boxes by the bottom-right y-coordinate of the bounding box
     sort_index = np.argsort(y2)
+    
     
     # Looping until nothing left in sort_index
     while sort_index.shape[0] > 0:
@@ -51,7 +51,6 @@ def non_maximum_suppression_fast(boxes, overlapThresh=0.3):
         # Calculate the width and height of the bounding box
         w = np.maximum(0, xx2 - xx1 + 1)
         h = np.maximum(0, yy2 - yy1 + 1)
-
         # Compute the ratio of overlapping
         overlap = (w*h) / bound_area[sort_index[:last]]
         
@@ -129,7 +128,7 @@ def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, strea
 
         # Run inference.
 
-        context.profiler = trt.Profiler()
+        # context.profiler = trt.Profiler()
         context.execute(batch_size=1, bindings=[int(d_input_1), int(d_output)])
 
         # Transfer predictions back from the GPU.
@@ -145,33 +144,37 @@ def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, strea
 
 
 
-def draw_detect(img , x , y , width , height , conf , class_id , label):
+def draw_detect(img , x1 , y1 , x2 , y2 , conf , class_id , label):
     # label = f'{CLASSES[class_id]} ({confidence:.2f})'
     # color = colors[class_id]
     
-    print(x , y , width , height , conf , class_id)
-    cv2.rectangle(img, (x, y), (x + width, y + height), (0,0,255), 2)
+    print(x1 , y1 , x2 , y2 , conf , class_id)
+    cv2.rectangle(img, (x1, y1), (x2, y2), (0,0,255), 2)
 
-    cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x - 10, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
+    cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x1 - 10, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
 
 def show_detect(img , preds , iou_threshold , conf_threshold, class_label):
     boxes = []
     scores = []
     class_ids = []
     
+    # print()
+    max_conf = np.max(preds[0,4:,:] , axis=0)
+    idx_list = np.where(max_conf > conf_threshold)[0]
+    
+    # for pred_idx in range(preds.shape[2]):
+    for pred_idx in idx_list:
 
-    for pred_idx in range(preds.shape[2]):
         pred = preds[0,:,pred_idx]
-        box = [pred[0] - 0.5*pred[2], pred[1] - 0.5*pred[3] , pred[2] , pred[3]]
-
         conf = pred[4:]
-        label = np.argmax(conf)
-        max_conf = np.max(conf)
-        if max_conf < conf_threshold:
-            continue
-        boxes.append(box)
         
-        scores.append(max_conf)
+        
+        box = [pred[0] - 0.5*pred[2], pred[1] - 0.5*pred[3] , pred[0] + 0.5*pred[2] , pred[1] + 0.5*pred[3]]
+        boxes.append(box)
+
+        label = np.argmax(conf)
+        
+        scores.append(max_conf[pred_idx])
         class_ids.append(label)
 
     boxes = np.array(boxes)
@@ -185,8 +188,6 @@ def show_detect(img , preds , iou_threshold , conf_threshold, class_label):
         draw_detect(img, round(box[0]), round(box[1]),round(box[2]), round(box[3]),
             scores[index] , class_ids[index] , class_label)
     
-    
-    
     return
         
 
@@ -199,6 +200,7 @@ def parse_opt():
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
     parser.add_argument('--data', nargs=1 , type=str, help=' dataset.yaml path')
+    parser.add_argument('--show', action="store_true", help=' show detect result')
 
     opt = parser.parse_args()
     return opt
@@ -215,6 +217,7 @@ def main(opt):
     iou_threshold =  opt['iou_thres']
     conf_threshold = opt['conf_thres']
     yaml_path = opt['data'][0]
+    show = opt['show']
 
     with open(yaml_path, 'r') as stream:
         data = yaml.load(stream)
@@ -223,15 +226,15 @@ def main(opt):
     print(label)
 
     if source.split('.')[-1] in ('jpg' , 'png' , 'jpeg'):
-        image_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label)
+        image_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show)
     else:
         if len(source.split('.')) == 1: source = int(source)
 
-        video_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label)
+        video_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show)
 
 
 
-def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label):
+def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show):
     h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -258,17 +261,21 @@ def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine ,
         
         end_time = time.perf_counter()
         fps = 1 / (end_time - start_time)
-        print((end_time - start_time))
-        print(fps)
-        cv2.putText(frame, f"fps : {int(fps)}", (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
-        cv2.imshow("img" , frame)
+        print(f"do_inference : {_}")
+        print(f"all_inference : {(end_time - start_time)}")
+        print(f"fps : {(fps)}")
+        # print(fps)
+
+        if show:
+            cv2.putText(frame, f"fps : {int(fps)}", (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+            cv2.imshow("img" , frame)
 
         if cv2.waitKey(1) == ord('q'):
             break
             
     cv2.destroyAllWindows()
 
-def image_inferences(img_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label):
+def image_inferences(img_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show):
     h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
     img = cv2.imread(img_path)
     img = cv2.resize(img , (WIDTH , HEIGHT))
@@ -279,9 +286,11 @@ def image_inferences(img_path , WIDTH , HEIGHT , model_output_shape , engine , i
     out , infer_time = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
     show_detect(img , out , iou_threshold , conf_threshold , label)
     print(f"success inference with {int(infer_time*1000)} ms")
-    cv2.imshow("img" , img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+
+    if show:
+        cv2.imshow("img" , img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 

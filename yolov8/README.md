@@ -23,25 +23,29 @@ sudo python3 yolov8/nano/yolov8_trt_inference.py --help
 # --output-shape is the model output size & define when the yolov8 training
 # --data is the yolov8 training yaml used to get class name
 # --source is the inference target : 0,1,2 => webcam / .jpg .png => image / .mp4 => video
-# imgsz/output-shape can get in yolov8_trt.ipynb or  onnx2trt.py
+# --imgsz/output-shape can get in yolov8_trt.ipynb or  onnx2trt.py
+# --show show the result
 
 # run with img
 sudo python3 yolov8/nano/yolov8_trt_inference.py \
 --weights data/models/best.engine \
 --source data/images/people.jpg \
 --imgsz 320 320 --output-shape 1 6 2100 \
---data yolov8/nano/sample.yaml 
+--data yolov8/nano/sample.yaml \
+--show
 # run with video
-sudo python3 yolov8/nano/yolov8_trt_inference.py \ 
+sudo python3 yolov8/nano/yolov8_trt_inference.py \
 --weights data/models/best.engine \
 --source data/video/dog_cat.mp4 \
 --imgsz 320 320 --output-shape 1 6 2100 \
---data yolov8/nano/sample.yaml
+--data yolov8/nano/sample.yaml \
+--show
 # run with webcam
 sudo python3 yolov8/nano/yolov8_trt_inference.py \
 --weights data/models/best.engine \
 --source 0 --imgsz 320 320 --output-shape 1 6 2100 \
---data yolov8/nano/sample.yaml
+--data yolov8/nano/sample.yaml \
+--show
 ```
 
 
