@@ -23,7 +23,7 @@ bash script/torch_install.sh
 sudo python3 onnx2trt.py --onnx {model_path}
 ```
 
-# trtexec tool
+# trtexec tool ([official](https://developer.nvidia.com/zh-cn/blog/tensorrt-trtexec-cn/))
 ```bash
 # export to onnx
 /usr/src/tensorrt/bin/trtexec --onnx={onnx_model} --saveEngine={engine_path}
