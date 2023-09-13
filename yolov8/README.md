@@ -14,6 +14,24 @@ sudo python3 onnx2trt.py --onnx {model_path}
 # output shape : (1, 6, 2100)
 ```
 
+### onnxruntime inference
+```bash
+# see parameter
+sudo python3 yolov8/nano/yolov8_onnx_inference.py --help 
+# --weights is the engine path
+# --imgsz is the input image w,h & define when the yolov8 training 
+# --device [CPUExecutionProvider / CUDAxecutionProvider]
+# --data is the yolov8 training yaml used to get class name
+# --source is the inference target : 0,1,2 => webcam / .jpg .png => image / .mp4 => video
+# --show show the result
+
+#
+sudo python3 yolov8/nano/yolov8_onnx_inference.py \
+--weights data/models/yolov8_with_facemask_op16.onnx \
+--source 0 \
+--imgsz 320 320  --data yolov8/nano/dataset.yaml \
+--device CUDAExecutionProvider
+```
 ### yolov8 engine inference
 ```bash
 # see parameter
@@ -23,8 +41,9 @@ sudo python3 yolov8/nano/yolov8_trt_inference.py --help
 # --output-shape is the model output size & define when the yolov8 training
 # --data is the yolov8 training yaml used to get class name
 # --source is the inference target : 0,1,2 => webcam / .jpg .png => image / .mp4 => video
-# --imgsz/output-shape can get in yolov8_trt.ipynb or  onnx2trt.py
 # --show show the result
+
+# imgsz/output-shape can get from yolov8_trt.ipynb or  onnx2trt.py
 
 # run with img
 sudo python3 yolov8/nano/yolov8_trt_inference.py \
