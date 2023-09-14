@@ -15,6 +15,11 @@ bash script/pycuda_install.sh
 bash script/torch_install.sh
 ```
 
+### install onnxruntime
+```bash
+bash script/onnxruntime_install.sh
+```
+
 # exprot onnx => tensorRT engine
 
 ### ```onnx2trt.py``` can export your onnx model to tensorRT engine
