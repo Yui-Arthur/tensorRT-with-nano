@@ -28,5 +28,15 @@ sudo python3 onnx2trt.py --onnx {model_path}
 # export to onnx
 /usr/src/tensorrt/bin/trtexec --onnx={onnx_model} --saveEngine={engine_path}
 # check model performance
-/usr/src/tensorrt/bin/trtexec --loadEngine={engine_path}
+/usr/src/tensorrt/bin/trtexec --loadEngine={engine_path}  --warmUp=5000
 ```
+
+## [Flower Classfiy with TensorRT](flower/README.md)
+## [Yolov8 with TensorRT](yolov8/README.md)
+
+
+## Yolov8 Inference Speed Benchmark on Nano with MAXN mode
+
+| | ONNX RUNTIME CPU | ONNX RUNTIME CUDA | TensorRT FP32 | TensorRT FP16 |
+|-| ---------------- | ----------------- | ------------- | ------------- |
+|320*320 FPS|  4.6   |       23.4        |  33.8         |          36.5 |

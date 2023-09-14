@@ -67,88 +67,69 @@ def load_engine(trt_runtime, plan_path):
     engine = trt_runtime.deserialize_cuda_engine(Path(plan_path).read_bytes())
     return engine
 
-def allocate_buffers(engine, batch_size, data_type):
+def allocate_buffers(engine, batch_size):
 
-   """
-   This is the function to allocate buffers for input and output in the device
-   Args:
-      engine : The path to the TensorRT engine.
-      batch_size : The batch size for execution time.
-      data_type: The type of the data for input and output, for example trt.float32.
+    inputs = []
+    outputs = []
+    bindings = []
+    # data_type = engine.get_binding_dtype(0)
 
-   Output:
-      h_input_1: Input in the host.
-      d_input_1: Input in the device.
-      h_output_1: Output in the host.
-      d_output_1: Output in the device.
-      stream: CUDA stream.
+    for binding in engine:
+        # print(engine.get_binding_dtype(binding))
+        size = trt.volume(engine.get_binding_shape(binding)) * batch_size
+        dtype = trt.nptype(engine.get_binding_dtype(binding))
+        
+        host_mem = cuda.pagelocked_empty(size, dtype=dtype)
+        device_mem = cuda.mem_alloc(host_mem.nbytes)
+        bindings.append(int(device_mem))
 
-   """
+        dic = {
+                "host_mem" : host_mem,
+                "device_mem" : device_mem,
+                "shape" : engine.get_binding_shape(binding),
+                "dtype" : dtype
+            }
+        if engine.binding_is_input(binding):
+            inputs.append(dic)
+        else:
+            outputs.append(dic)
 
-   # Determine dimensions and create page-locked memory buffers (which won't be swapped to disk) to hold host inputs/outputs.
-   h_input_1 = cuda.pagelocked_empty(batch_size * trt.volume(engine.get_binding_shape(0)), dtype=trt.nptype(data_type))
-   h_output = cuda.pagelocked_empty(batch_size * trt.volume(engine.get_binding_shape(1)), dtype=trt.nptype(data_type))
-   # Allocate device memory for inputs and outputs.
-   d_input_1 = cuda.mem_alloc(h_input_1.nbytes)
-
-   d_output = cuda.mem_alloc(h_output.nbytes)
-   # Create a stream in which to copy inputs/outputs and run inference.
-   stream = cuda.Stream()
-   return h_input_1, d_input_1, h_output, d_output, stream
+    stream = cuda.Stream()
+    return inputs , outputs , bindings , stream
 
 def load_images_to_buffer(pics, pagelocked_buffer):
+   
    preprocessed = np.asarray(pics).ravel()
    np.copyto(pagelocked_buffer, preprocessed)
 
-def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, stream, model_output_shape):
-    """
-    This is the function to run the inference
-    Args:
-        engine : Path to the TensorRT engine
-        pics_1 : Input images to the model.
-        h_input_1: Input in the host
-        d_input_1: Input in the device
-        h_output_1: Output in the host
-        d_output_1: Output in the device
-        stream: CUDA stream
-        batch_size : Batch size for execution time
-        height: Height of the output image
-        width: Width of the output image
+def do_inference(context, pics_1, inputs , outputs , bindings , stream, model_output_shape):
 
-    Output:
-        The list of output images
-
-    """
     start = time.perf_counter()
-    load_images_to_buffer(pics_1, h_input_1)
+    load_images_to_buffer(pics_1, inputs[0]["host_mem"])
 
-    with engine.create_execution_context() as context:
-        # Transfer input data to the GPU.
-        cuda.memcpy_htod_async(d_input_1, h_input_1, stream)
+    [cuda.memcpy_htod_async(intput_dic['device_mem'], intput_dic['host_mem'], stream) for intput_dic in inputs]
 
-        # Run inference.
+    # Run inference.
 
-        # context.profiler = trt.Profiler()
-        context.execute(batch_size=1, bindings=[int(d_input_1), int(d_output)])
+    # context.profiler = trt.Profiler()
+    context.execute(batch_size=1, bindings=bindings)
 
-        # Transfer predictions back from the GPU.
-        cuda.memcpy_dtoh_async(h_output, d_output, stream)
-        # Synchronize the stream
-        stream.synchronize()
-        # Return the host output.
-        out = h_output.reshape((model_output_shape))
-        # out = h_output
+    # Transfer predictions back from the GPU.
+    [cuda.memcpy_dtoh_async(output_dic["host_mem"], output_dic["device_mem"], stream) for output_dic in outputs]
+    # Synchronize the stream
+    stream.synchronize()
+    # Return the host output.
+    out = outputs[0]["host_mem"].reshape((outputs[0]['shape']))
+    # out = h_output
 
-        return out , time.perf_counter() - start
-
-
+    return out , time.perf_counter() - start
 
 
 def draw_detect(img , x1 , y1 , x2 , y2 , conf , class_id , label):
     # label = f'{CLASSES[class_id]} ({confidence:.2f})'
     # color = colors[class_id]
     
-    print(x1 , y1 , x2 , y2 , conf , class_id)
+    # print(x1 , y1 , x2 , y2 , conf , class_id)
     cv2.rectangle(img, (x1, y1), (x2, y2), (0,0,255), 2)
 
     cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x1 - 10, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
@@ -195,8 +176,8 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs=1, type=str, help='model path')
     parser.add_argument('--source', nargs=1 , type=str  ,help='inference target')
-    parser.add_argument('--output-shape' , nargs='+' , type=int, help='model output shape')
-    parser.add_argument('--imgsz', nargs='+', type=int, default=[640,640], help='inference size h,w')
+    # parser.add_argument('--output-shape' , nargs='+' , type=int, help='model output shape')
+    # parser.add_argument('--imgsz', nargs='+', type=int, default=[640,640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
     parser.add_argument('--data', nargs=1 , type=str, help=' dataset.yaml path')
@@ -210,8 +191,8 @@ def main(opt):
     TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
     trt_runtime = trt.Runtime(TRT_LOGGER)
     engine_path = opt['weights'][0]
-    WIDTH , HEIGHT = opt['imgsz']
-    model_output_shape = opt['output_shape']
+    # WIDTH , HEIGHT = opt['imgsz']
+    # model_output_shape = opt['output_shape']
     engine = load_engine(trt_runtime, engine_path)
     source =  opt['source'][0]
     iou_threshold =  opt['iou_thres']
@@ -226,21 +207,35 @@ def main(opt):
     print(label)
 
     if source.split('.')[-1] in ('jpg' , 'png' , 'jpeg'):
-        image_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show)
+        image_inferences(source , engine , iou_threshold , conf_threshold , label , show)
     else:
         if len(source.split('.')) == 1: source = int(source)
 
-        video_inferences(source , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show)
+        video_inferences(source , engine , iou_threshold , conf_threshold , label , show)
 
 
 
-def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show):
-    h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
+def video_inferences(video_path , engine , iou_threshold , conf_threshold , label , show):
+    inputs , outputs , bindings , stream = allocate_buffers(engine, 1)
+    context = engine.create_execution_context()
+
+    # print(inputs[0]["shape"])
+    # print(outputs[0]['shape'])
+
+    WIDTH = inputs[0]["shape"][2]
+    HEIGHT = inputs[0]["shape"][3]
+
+    model_output_shape = outputs[0]['shape']
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print("VideoCapture Error")
         return
     
+    total_infer_time = 0
+    total_infer_count = 0
+    warmup_count = 100
+
     while(True):
         ret, frame = cap.read()
         if not ret:
@@ -253,7 +248,7 @@ def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine ,
         im = np.array(im, dtype=np.float32, order='C')
         im = im.transpose((2, 0, 1))
         im /=  255
-        out , _ = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
+        out , _ = do_inference(context, im, inputs , outputs , bindings, stream, model_output_shape)
 
         
         show_detect(frame , out , iou_threshold , conf_threshold , label)
@@ -261,10 +256,14 @@ def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine ,
         
         end_time = time.perf_counter()
         fps = 1 / (end_time - start_time)
-        print(f"do_inference : {_}")
-        print(f"all_inference : {(end_time - start_time)}")
-        print(f"fps : {(fps)}")
+        # print(f"do_inference : {_}")
+        # print(f"all_inference : {(end_time - start_time)}")
+        # print(f"fps : {(fps)}")
         # print(fps)
+        total_infer_count += 1
+        if total_infer_count > warmup_count:
+            total_infer_time += end_time - start_time
+            print(f"avg FPS : {1/(total_infer_time / (total_infer_count-warmup_count))}")
 
         if show:
             cv2.putText(frame, f"fps : {int(fps)}", (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
@@ -275,15 +274,27 @@ def video_inferences(video_path , WIDTH , HEIGHT , model_output_shape , engine ,
             
     cv2.destroyAllWindows()
 
-def image_inferences(img_path , WIDTH , HEIGHT , model_output_shape , engine , iou_threshold , conf_threshold , label , show):
-    h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
+    print(f"avg FPS : {1/(total_infer_time / (total_infer_count-warmup_count))}")
+
+def image_inferences(img_path , engine , iou_threshold , conf_threshold , label , show):
+    inputs , outputs , bindings , stream = allocate_buffers(engine, 1)
+    context = engine.create_execution_context()
+
+    # print(inputs[0]["shape"])
+    # print(outputs[0]['shape'])
+
+    WIDTH = inputs[0]["shape"][2]
+    HEIGHT = inputs[0]["shape"][3]
+
+    model_output_shape = outputs[0]['shape']
+
     img = cv2.imread(img_path)
     img = cv2.resize(img , (WIDTH , HEIGHT))
     im = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     im = np.array(im, dtype=np.float32, order='C')
     im = im.transpose((2, 0, 1))
     im = (2.0 / 255.0) * im - 1.0
-    out , infer_time = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, model_output_shape)
+    out , infer_time = do_inference(context, im, inputs , outputs , bindings, stream, model_output_shape)
     show_detect(img , out , iou_threshold , conf_threshold , label)
     print(f"success inference with {int(infer_time*1000)} ms")
 
