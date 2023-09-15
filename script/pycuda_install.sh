@@ -23,3 +23,7 @@ pip3 install onnx==1.9.0
 # pillow
 apt install -y libjpeg8 libjpeg62-dev libfreetype6 libfreetype6-dev
 pip3 install pillow
+
+# pafy
+pip3 install pafy
+pip3 install youtube_dl==2020.12.2

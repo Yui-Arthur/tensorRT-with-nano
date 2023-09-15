@@ -8,6 +8,7 @@ import argparse
 import yaml
 import time
 import onnxruntime as ort
+import pafy
 
 def non_maximum_suppression_fast(boxes, overlapThresh=0.3):
     
@@ -61,16 +62,17 @@ def non_maximum_suppression_fast(boxes, overlapThresh=0.3):
     return pick
 
 
-def draw_detect(img , x1 , y1 , x2 , y2 , conf , class_id , label):
+def draw_detect(img , x1 , y1 , x2 , y2 , conf , class_id , label , color_palette):
     # label = f'{CLASSES[class_id]} ({confidence:.2f})'
-    # color = colors[class_id]
+    color = color_palette[class_id]
     
     # print(x1 , y1 , x2 , y2 , conf , class_id)
-    cv2.rectangle(img, (x1, y1), (x2, y2), (0,0,255), 2)
+    cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
-    cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x1 - 10, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+    cv2.putText(img, f"{label[class_id]} {conf:0.3}", (x1 - 10, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-def show_detect(img , preds , iou_threshold , conf_threshold, class_label):
+
+def show_detect(img , preds , iou_threshold , conf_threshold, class_label , color_palette):
     boxes = []
     scores = []
     class_ids = []
@@ -103,7 +105,7 @@ def show_detect(img , preds , iou_threshold , conf_threshold, class_label):
         box = boxes[index]
         
         draw_detect(img, round(box[0]), round(box[1]),round(box[2]), round(box[3]),
-            scores[index] , class_ids[index] , class_label)
+            scores[index] , class_ids[index] , class_label , color_palette)
     
     return
         
@@ -144,18 +146,17 @@ def main(opt):
         data = yaml.load(stream)
     
     label = data['names']
+    color_palette = np.random.uniform(0, 255, size=(len(label), 3))
     print(label)
 
     if source.split('.')[-1] in ('jpg' , 'png' , 'jpeg'):
-        image_inferences(source , onnx_path , provider , iou_threshold , conf_threshold , label , show)
+        image_inferences(source , onnx_path , provider , iou_threshold , conf_threshold , label , color_palette , show)
     else:
-        if len(source.split('.')) == 1: source = int(source)
-
-        video_inferences(source , onnx_path , provider , iou_threshold , conf_threshold , label , show)
+        video_inferences(source , onnx_path , provider , iou_threshold , conf_threshold , label , color_palette , show)
 
 
 
-def video_inferences(video_path , onnx_path , provider  , iou_threshold , conf_threshold , label , show):
+def video_inferences(video_path , onnx_path , provider  , iou_threshold , conf_threshold , label , color_palette , show):
     
     ort_sess = ort.InferenceSession(onnx_path , providers=[provider])
     input_name = ort_sess.get_inputs()[0].name
@@ -168,6 +169,17 @@ def video_inferences(video_path , onnx_path , provider  , iou_threshold , conf_t
     total_infer_time = 0
     total_infer_count = 0
     warmup_count = 100
+
+    video_info = "video"
+
+    if "youtube.com"  in video_path: 
+        video_info = pafy.new(video_path)  
+        video_path = video_info.getbest(preftype='mp4').url
+    elif len(video_path.split('.')) == 1: 
+        video_info = "webcam"
+        video_path = int(video_path)
+    
+    print(f"Inference with : {video_info}")
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -191,7 +203,7 @@ def video_inferences(video_path , onnx_path , provider  , iou_threshold , conf_t
         output_data = ort_sess.run([output_name], {input_name: [im]})[0]
         infer_time = time.perf_counter() - infer_start_time
 
-        show_detect(frame , output_data , iou_threshold , conf_threshold , label)
+        show_detect(frame , output_data , iou_threshold , conf_threshold , label , color_palette)
 
         
         end_time = time.perf_counter()
@@ -215,9 +227,10 @@ def video_inferences(video_path , onnx_path , provider  , iou_threshold , conf_t
             break
             
     cv2.destroyAllWindows()
-    print(f"avg FPS : {1/(total_infer_time / (total_infer_count-warmup_count))}")
+    if total_infer_count > warmup_count:
+        print(f"avg FPS : {1/(total_infer_time / (total_infer_count-warmup_count))}")
 
-def image_inferences(img_path , onnx_path , provider , iou_threshold , conf_threshold , label , show):
+def image_inferences(img_path , onnx_path , provider , iou_threshold , conf_threshold , label , color_palette , show):
     ort_sess = ort.InferenceSession(onnx_path , providers=[provider])
     input_name = ort_sess.get_inputs()[0].name
     input_shape = ort_sess.get_inputs()[0].shape
@@ -236,7 +249,7 @@ def image_inferences(img_path , onnx_path , provider , iou_threshold , conf_thre
     
     output_data = ort_sess.run([output_name], {input_name: [im]})[0]
 
-    show_detect(img , output_data , iou_threshold , conf_threshold , label)
+    show_detect(img , output_data , iou_threshold , conf_threshold , label , color_palette)
     # print(f"success inference with {int(infer_time*1000)} ms")
 
     if show:
