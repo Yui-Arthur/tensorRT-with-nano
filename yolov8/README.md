@@ -21,7 +21,7 @@ sudo python3 onnx2trt.py --onnx {model_path}
 # see parameter
 sudo python3 yolov8/nano/yolov8_onnx_inference.py --help 
 # --weights is the engine path
-# --device [CPUE / CUDA]
+# --device [CPU / CUDA]
 # --data is the yolov8 training yaml used to get class name
 # --source is the inference target : 0,1,2 => webcam / .jpg .png => image / .mp4 => video
 # --show show the result
