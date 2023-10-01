@@ -10,78 +10,62 @@ import argparse
 import time
 
 
-def allocate_buffers(engine, batch_size, data_type):
+def allocate_buffers(engine, batch_size):
 
-   """
-   This is the function to allocate buffers for input and output in the device
-   Args:
-      engine : The path to the TensorRT engine.
-      batch_size : The batch size for execution time.
-      data_type: The type of the data for input and output, for example trt.float32.
+    inputs = []
+    outputs = []
+    bindings = []
+    # data_type = engine.get_binding_dtype(0)
 
-   Output:
-      h_input_1: Input in the host.
-      d_input_1: Input in the device.
-      h_output_1: Output in the host.
-      d_output_1: Output in the device.
-      stream: CUDA stream.
+    for binding in engine:
+        # print(engine.get_binding_dtype(binding))
+        size = trt.volume(engine.get_binding_shape(binding)) * batch_size
+        dtype = trt.nptype(engine.get_binding_dtype(binding))
+        
+        host_mem = cuda.pagelocked_empty(size, dtype=dtype)
+        device_mem = cuda.mem_alloc(host_mem.nbytes)
+        bindings.append(int(device_mem))
 
-   """
+        dic = {
+                "host_mem" : host_mem,
+                "device_mem" : device_mem,
+                "shape" : engine.get_binding_shape(binding),
+                "dtype" : dtype
+            }
+        if engine.binding_is_input(binding):
+            inputs.append(dic)
+        else:
+            outputs.append(dic)
 
-   # Determine dimensions and create page-locked memory buffers (which won't be swapped to disk) to hold host inputs/outputs.
-   h_input_1 = cuda.pagelocked_empty(batch_size * trt.volume(engine.get_binding_shape(0)), dtype=trt.nptype(data_type))
-   h_output = cuda.pagelocked_empty(batch_size * trt.volume(engine.get_binding_shape(1)), dtype=trt.nptype(data_type))
-   # Allocate device memory for inputs and outputs.
-   d_input_1 = cuda.mem_alloc(h_input_1.nbytes)
-
-   d_output = cuda.mem_alloc(h_output.nbytes)
-   # Create a stream in which to copy inputs/outputs and run inference.
-   stream = cuda.Stream()
-   return h_input_1, d_input_1, h_output, d_output, stream
+    stream = cuda.Stream()
+    return inputs , outputs , bindings , stream
 
 def load_images_to_buffer(pics, pagelocked_buffer):
    preprocessed = np.asarray(pics).ravel()
    np.copyto(pagelocked_buffer, preprocessed)
 
-def do_inference(engine, pics_1, h_input_1, d_input_1, h_output, d_output, stream, batch_size, height, width):
-   """
-   This is the function to run the inference
-   Args:
-      engine : Path to the TensorRT engine
-      pics_1 : Input images to the model.
-      h_input_1: Input in the host
-      d_input_1: Input in the device
-      h_output_1: Output in the host
-      d_output_1: Output in the device
-      stream: CUDA stream
-      batch_size : Batch size for execution time
-      height: Height of the output image
-      width: Width of the output image
+def do_inference(context, pics_1, inputs , outputs , bindings , stream, model_output_shape):
 
-   Output:
-      The list of output images
+    start = time.perf_counter()
+    load_images_to_buffer(pics_1, inputs[0]["host_mem"])
 
-   """
+    [cuda.memcpy_htod_async(intput_dic['device_mem'], intput_dic['host_mem'], stream) for intput_dic in inputs]
 
-   load_images_to_buffer(pics_1, h_input_1)
+    # Run inference.
 
-   with engine.create_execution_context() as context:
-      # Transfer input data to the GPU.
-      cuda.memcpy_htod_async(d_input_1, h_input_1, stream)
+    # context.profiler = trt.Profiler()
+    context.execute(batch_size=1, bindings=bindings)
 
-      # Run inference.
+    # Transfer predictions back from the GPU.
+    [cuda.memcpy_dtoh_async(output_dic["host_mem"], output_dic["device_mem"], stream) for output_dic in outputs]
+    # Synchronize the stream
+    stream.synchronize()
+    # Return the host output.
+    out = outputs[0]["host_mem"].reshape((outputs[0]['shape']))
+    # out = h_output
 
-      context.profiler = trt.Profiler()
-      context.execute(batch_size=1, bindings=[int(d_input_1), int(d_output)])
+    return out , time.perf_counter() - start
 
-      # Transfer predictions back from the GPU.
-      cuda.memcpy_dtoh_async(h_output, d_output, stream)
-      # Synchronize the stream
-      stream.synchronize()
-      # Return the host output.
-      # out = h_output.reshape((batch_size, -1, height, width))
-      out = h_output
-      return out.reshape(1, -1)
 def softmax(x):
   # x -= np.max(x , axis=1 , keepdims = True)
   x = np.exp(x) / np.sum(np.exp(x))
@@ -121,7 +105,8 @@ def main(opt):
     }
 
     img = Image.open(input_image_path).resize((WIDTH , HEIGHT))
-    # img.show()
+    
+    
     
     start_time = time.perf_counter()
 
@@ -131,10 +116,11 @@ def main(opt):
     im /=  255
 
     engine = load_engine(trt_runtime, model_path)
-    h_input, d_input, h_output, d_output, stream = allocate_buffers(engine, 1, trt.float32)
+    inputs , outputs , bindings , stream = allocate_buffers(engine, 1)
+    context = engine.create_execution_context()
+    model_output_shape = outputs[0]['shape']
 
-
-    out = do_inference(engine, im, h_input, d_input, h_output, d_output, stream, 1, HEIGHT, WIDTH)
+    out , infer_time = do_inference(context, im, inputs , outputs , bindings, stream, model_output_shape)
     
     out = softmax(out.astype(np.float128))
     end_time = time.perf_counter()
