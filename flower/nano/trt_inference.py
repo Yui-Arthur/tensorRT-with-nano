@@ -94,7 +94,7 @@ def main(opt):
 
     input_image_path = opt['source']
     model_path = opt['engine']
-    HEIGHT , WIDTH = opt['imgsz']
+    WIDTH , HEIGHT = opt['imgsz']
 
     class_dic = {
         0 : "daisy",
@@ -119,7 +119,7 @@ def main(opt):
     inputs , outputs , bindings , stream = allocate_buffers(engine, 1)
     context = engine.create_execution_context()
     model_output_shape = outputs[0]['shape']
-
+    
     out , infer_time = do_inference(context, im, inputs , outputs , bindings, stream, model_output_shape)
     
     out = softmax(out.astype(np.float128))
