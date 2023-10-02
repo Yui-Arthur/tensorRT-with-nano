@@ -1,6 +1,7 @@
 # Introduce
 ### This project is run the model on jetson nano with tensorRT
-### ```flower``` & ```yolov8``` folder contain two part , one is training model on colab , another is inference on nano
+### Lab ```flower``` & ```yolov8``` folder contain two part , one is training model on colab , another is inference on nano
+### homework ```direction``` contain TODO Part and need complete by your self 
 
 # nano requirement
 
@@ -28,7 +29,7 @@ bash script/onnxruntime_install.sh
 sudo python3 onnx2trt.py --onnx {model_path}
 ```
 
-# trtexec tool ([official](https://developer.nvidia.com/zh-cn/blog/tensorrt-trtexec-cn/))
+### trtexec tool ([official](https://developer.nvidia.com/zh-cn/blog/tensorrt-trtexec-cn/))
 ```bash
 # export to onnx
 /usr/src/tensorrt/bin/trtexec --onnx={onnx_model} --saveEngine={engine_path}
@@ -36,13 +37,16 @@ sudo python3 onnx2trt.py --onnx {model_path}
 /usr/src/tensorrt/bin/trtexec --loadEngine={engine_path}  --warmUp=5000
 ```
 
-## Lab1 : [Flower Classfiy with TensorRT](flower/README.md)
-## Homework1 : [Direction Classfiy](homework/direction/README.md)
-## Lab2 : [Yolov8 with TensorRT](yolov8/README.md)
+# Classify
+### Lab1 : [Flower Classfiy with TensorRT](flower/README.md)
+### Homework1 : [Direction Classfiy](homework/direction/README.md)
+
+# Object Detection
+### Lab2 : [Yolov8 with TensorRT](yolov8/README.md)
 <!-- ## Homework2 : [Direction Classfiy](homework/direction/README.md) -->
 
 
-## Yolov8 Inference Speed Benchmark on Nano with MAXN mode
+### Yolov8 Inference Speed Benchmark on Nano with MAXN mode
 
 | | ONNX RUNTIME CPU | ONNX RUNTIME CUDA | TensorRT FP32 | TensorRT FP16 |
 |-| ---------------- | ----------------- | ------------- | ------------- |
