@@ -37,7 +37,9 @@ sudo python3 onnx2trt.py --onnx {model_path}
 ```
 
 ## Lab1 : [Flower Classfiy with TensorRT](flower/README.md)
+## Homework1 : [Direction Classfiy](homework/direction/README.md)
 ## Lab2 : [Yolov8 with TensorRT](yolov8/README.md)
+<!-- ## Homework2 : [Direction Classfiy](homework/direction/README.md) -->
 
 
 ## Yolov8 Inference Speed Benchmark on Nano with MAXN mode
