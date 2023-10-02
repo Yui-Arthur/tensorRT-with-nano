@@ -43,7 +43,7 @@ sudo python3 onnx2trt.py --onnx {model_path}
 
 # Object Detection
 ### Lab2 : [Yolov8 with TensorRT](yolov8/)
-<!-- ## Homework2 : [Direction Classfiy](homework/direction/README.md) -->
+
 
 
 ### Yolov8 Inference Speed Benchmark on Nano with MAXN mode
