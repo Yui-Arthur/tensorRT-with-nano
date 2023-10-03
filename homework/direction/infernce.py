@@ -100,13 +100,14 @@ def main(opt):
     class_dic = {
         0 : "",
     }
+    #########################
 
     engine = load_engine(trt_runtime, model_path)
     inputs , outputs , bindings , stream = allocate_buffers(engine, 1)
     context = engine.create_execution_context()
     
     
-    # TODO change this to read webcam frame &　show the result and fps
+    # TODO change this to repeat read webcam frame &　show the result and fps
     img = Image.open(input_image_path).resize((WIDTH , HEIGHT))
     start_time = time.perf_counter()
 
@@ -126,6 +127,7 @@ def main(opt):
 
     print(f"inference time : {(end_time - start_time)*1000} ms")
     print(class_dic[label] , value)
+    #########################
 
 if __name__ == '__main__':
    opt = parse_opt()

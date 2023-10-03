@@ -14,6 +14,7 @@ if not cap.isOpened():
 # TODO set the inference img size #
 WIDTH = 0
 HEIGHT = 0
+#########################
 
 start_save = False
 # start capture
@@ -33,6 +34,7 @@ while(True):
         # TODO save the frame in class folder or save the frame's filename with class id
         # save the frame
         cv2.imwrite('data/direction_dataset/sample.jpg', frame)
+        #########################
 
     key = cv2.waitKey(90)
     print(key)
