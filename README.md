@@ -38,8 +38,9 @@ sudo python3 onnx2trt.py --onnx {model_path}
 ```
 
 # Classify
-### Lab1 : [Flower Classfiy with TensorRT](flower/)
-### Homework1 : [Direction Classfiy](homework/direction/)
+### Lab1 : [Flower Classifiy with TensorRT](flower/)
+### Homework1 : [Direction Classifiy](homework/direction/)
+### Naki Teacher Lesson : [Audio Classifiy](ESC-10/)
 
 # Object Detection
 ### Lab2 : [Yolov8 with TensorRT](yolov8/)
