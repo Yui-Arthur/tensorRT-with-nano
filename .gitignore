@@ -3,3 +3,4 @@ data/models/*.onnx
 data/models/*.pt
 deprecated/*
 homework/full*
+test.py
