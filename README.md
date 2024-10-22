@@ -11,10 +11,10 @@ sudo su
 bash script/pycuda_install.sh
 ```
 
-### install torch 
+<!-- ### install torch 
 ```bash
 bash script/torch_install.sh
-```
+``` -->
 
 ### install onnxruntime
 ```bash
