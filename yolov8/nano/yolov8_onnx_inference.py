@@ -250,7 +250,7 @@ def image_inferences(img_path , onnx_path , provider , iou_threshold , conf_thre
     output_data = ort_sess.run([output_name], {input_name: [im]})[0]
 
     show_detect(img , output_data , iou_threshold , conf_threshold , label , color_palette)
-    # print(f"success inference with {int(infer_time*1000)} ms")
+    print(f"success inference !")
 
     if show:
         cv2.imshow("img" , img)

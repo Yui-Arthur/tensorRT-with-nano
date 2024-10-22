@@ -54,7 +54,7 @@ def do_inference(context, pics_1, inputs , outputs , bindings , stream, model_ou
     # Run inference.
 
     # context.profiler = trt.Profiler()
-    context.execute(batch_size=1, bindings=bindings)
+    context.execute_v2(bindings=bindings)
 
     # Transfer predictions back from the GPU.
     [cuda.memcpy_dtoh_async(output_dic["host_mem"], output_dic["device_mem"], stream) for output_dic in outputs]
